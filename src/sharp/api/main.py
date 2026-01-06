@@ -4,6 +4,7 @@ import logging
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi import Response
 
 from sharp.api.model import load_model
 from sharp.api.inference import run_inference
@@ -34,15 +35,18 @@ async def predict(file: UploadFile = File(...)):
 
     # Zip results
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as z:
+    with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_STORED) as z:
         z.write(job_dir / "scene.ply", "scene.ply")
         z.write(job_dir / "render.mp4", "render.mp4")
         z.write(job_dir / "render.depth.mp4", "render.depth.mp4")
 
-    zip_buffer.seek(0)
+    zip_bytes = zip_buffer.getvalue()
 
-    return StreamingResponse(
-        zip_buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=sharp_output.zip"},
-    )
+    return Response(
+    content=zip_bytes,
+    media_type="application/zip",
+    headers={
+        "Content-Disposition": "attachment; filename=sharp_output.zip",
+        "Content-Length": str(len(zip_bytes)),
+    },
+)
