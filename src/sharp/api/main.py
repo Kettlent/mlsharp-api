@@ -36,7 +36,7 @@ async def predict(file: UploadFile = File(...)):
     # Zip results
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_STORED) as z:
-        z.write(job_dir / "scene.ply", "scene.ply")
+        # z.write(job_dir / "scene.ply", "scene.ply")
         z.write(job_dir / "render.mp4", "render.mp4")
         z.write(job_dir / "render.depth.mp4", "render.depth.mp4")
 
