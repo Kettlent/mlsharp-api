@@ -1,7 +1,7 @@
 import io
 import zipfile
 import logging
-
+import shutil
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi import Response
@@ -24,29 +24,62 @@ def health():
     return {"status": "ok", "cuda": True}
 
 
+# @app.post("/predict")
+# async def predict(file: UploadFile = File(...)):
+#     if not file.content_type.startswith("image/"):
+#         raise HTTPException(status_code=400, detail="Invalid image file")
+
+#     image_bytes = await file.read()
+
+#     job_dir = run_inference(image_bytes, file.filename)
+
+#     # Zip results
+#     zip_buffer = io.BytesIO()
+#     with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_STORED) as z:
+#         z.write(job_dir / "scene.ply", "scene.ply")
+#         z.write(job_dir / "render.mp4", "render.mp4")
+#         z.write(job_dir / "render.depth.mp4", "render.depth.mp4")
+
+#     zip_bytes = zip_buffer.getvalue()
+
+#     return Response(
+#     content=zip_bytes,
+#     media_type="application/zip",
+#     headers={
+#         "Content-Disposition": "attachment; filename=sharp_output.zip",
+#         "Content-Length": str(len(zip_bytes)),
+#     },
+# )
+
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Invalid image file")
 
-    image_bytes = await file.read()
+    job_dir = None
 
-    job_dir = run_inference(image_bytes, file.filename)
+    try:
+        image_bytes = await file.read()
 
-    # Zip results
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_STORED) as z:
-        z.write(job_dir / "scene.ply", "scene.ply")
-        z.write(job_dir / "render.mp4", "render.mp4")
-        z.write(job_dir / "render.depth.mp4", "render.depth.mp4")
+        job_dir = run_inference(image_bytes, file.filename)
 
-    zip_bytes = zip_buffer.getvalue()
+        zip_buffer = io.BytesIO()
 
-    return Response(
-    content=zip_bytes,
-    media_type="application/zip",
-    headers={
-        "Content-Disposition": "attachment; filename=sharp_output.zip",
-        "Content-Length": str(len(zip_bytes)),
-    },
-)
+        with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_STORED) as z:
+            z.write(job_dir / "scene.ply", "scene.ply")
+            z.write(job_dir / "render.mp4", "render.mp4")
+            z.write(job_dir / "render.depth.mp4", "render.depth.mp4")
+
+        zip_bytes = zip_buffer.getvalue()
+
+        return Response(
+            content=zip_bytes,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": "attachment; filename=sharp_output.zip",
+                "Content-Length": str(len(zip_bytes)),
+            },
+        )
+
+    finally:
+        # 🔥 CLEANUP (always runs)
+        if job_dir and job_dir.exists():
+            shutil.rmtree(job_dir, ignore_errors=True)
